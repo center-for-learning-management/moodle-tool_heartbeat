@@ -97,14 +97,21 @@ $string['addmute'] = 'Add mute';
 $string['editmute'] = 'Edit mute';
 $string['overriderestore'] = 'Fields have been pre-filled with information from a previous override.';
 $string['noterequired'] = 'Please add some notes';
+$string['muteurlregex'] = 'The URL must match the format defined in settings: {$a}';
+$string['statusunknown'] = 'Unknown';
 $string['settings:mutedefault'] = 'Default mute duration';
 $string['settings:mutedefault:desc'] = 'Adjust the default duration of a check mute.';
+$string['settings:mutedefaultstatus'] = 'Default mute status';
+$string['settings:mutedefaultstatus:desc'] = 'Adjust the default status of a check mute.';
+$string['settings:muteurlregex'] = 'Mute URL regex rule';
+$string['settings:muteurlregex:desc'] = 'Adds a regex matching rule for check mute URLs and makes it a required field. The provided regex should include delimiters.';
 
 $string['settings:cachecheckheading'] = 'Cache consistency check';
 $string['settings:shouldlogcacheping:heading'] = 'Log cache ping';
 $string['settings:shouldlogcacheping:desc'] = 'If enabled, whenever the cache ping is updated (usually once every 24 hrs), a <code>cache_ping</code> event will be triggered';
 $string['settings:shouldlogcachecheck:heading'] = 'Log cache check';
 $string['settings:shouldlogcachecheck:desc'] = 'If enabled, whenever the cache ping is checked (whenever the <code>cachecheck</code> check is executed) a <code>cache_check</code> event will be triggered';
+$string['systemstatus'] = 'Heartbeat system status';
 
 /*
  * Privacy provider (GDPR)
