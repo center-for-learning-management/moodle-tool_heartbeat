@@ -125,7 +125,7 @@ if (!(isset($argv))) {
 }
 
 if ($fullcheck || $checksession) {
-    $c = new curl(['cache' => false, 'cookie' => true]);
+    $c = new curl(array('cache' => false, 'cookie' => $CFG->dataroot.'/curl_cookie-' . gethostname() . '.txt'));
     $response = $c->get(new moodle_url('/admin/tool/heartbeat/sessionone.php'));
     if ($sessioncheck = json_decode($response)) {
         if ($sessioncheck->success == 'pass') {
