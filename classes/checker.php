@@ -39,6 +39,28 @@ class checker {
         3 => "UNKNOWN",
     ];
 
+    /** @var array Map check result to nagios level **/
+    public const RESULT_MAPPING = [
+        result::OK => resultmessage::LEVEL_OK,
+        result::INFO => resultmessage::LEVEL_OK,
+        result::NA => resultmessage::LEVEL_OK,
+        result::WARNING => resultmessage::LEVEL_WARN,
+        result::CRITICAL => resultmessage::LEVEL_CRITICAL,
+        result::ERROR => resultmessage::LEVEL_CRITICAL,
+        result::UNKNOWN => resultmessage::LEVEL_UNKNOWN,
+    ];
+
+    /** @var array Map check result to nagios level **/
+    public const RESULT_ORDER = [
+        result::NA          => 0,
+        result::INFO        => 1,
+        result::OK          => 2,
+        result::WARNING     => 3,
+        result::UNKNOWN     => 4,
+        result::ERROR       => 5,
+        result::CRITICAL    => 6,
+    ];
+
     /**
      * Returns an array of check API messages.
      * If exceptions are thrown, they are caught and returned as result messages as well.
@@ -133,14 +155,7 @@ class checker {
         $checkresult = self::get_overridden_result($check);
 
         // Map check result to nagios level.
-        $map = [
-            result::OK => resultmessage::LEVEL_OK,
-            result::NA => resultmessage::LEVEL_OK,
-            result::WARNING => resultmessage::LEVEL_WARN,
-            result::CRITICAL => resultmessage::LEVEL_CRITICAL,
-            result::ERROR => resultmessage::LEVEL_CRITICAL,
-            result::UNKNOWN => resultmessage::LEVEL_UNKNOWN,
-        ];
+        $map = self::RESULT_MAPPING;
 
         // Get the level, or default to unknown.
         $status = $checkresult->get_status();
@@ -308,6 +323,53 @@ class checker {
     }
 
     /**
+     * Apply any configured changes to the result of the check based on it's ref string
+     *
+     * Right now the only configurable options are to reduce the maximum alert level of a check.
+     * @param string $ref The check ref value
+     * @param core\check\result $result The default result of the check
+     * @return core\check\result The result of the check after any configuration settings are applied
+     */
+    public static function apply_configuration_settings($ref, result $result): result {
+        global $CFG;
+        // No configuration exists, short circuit.
+        if (!isset($CFG->tool_heartbeat_check_defaults)
+            || !is_array($CFG->tool_heartbeat_check_defaults)
+        ) {
+            return $result;
+        }
+        $status = $result->get_status();
+        $max = false;
+        // The configuration is a list of potential regex strings => array of
+        // config, we check each regex string against the check ref.
+        // Note: We do not guard against multiple matches, the last in the array
+        // always applies.
+        $tests = array_keys($CFG->tool_heartbeat_check_defaults);
+        foreach ($tests as $test) {
+            $regex = '/'.$test.'/';
+            if (preg_match($regex, $ref)) {
+                // This key matched, get the maximum fail delay.
+                $max = $CFG->tool_heartbeat_check_defaults[$test]['maxwarninglevel'];
+            }
+        }
+        // None of the configuration options matched, just return the passed in
+        // result.
+        if ($max === false) {
+            return $result;
+        }
+        // Get a map of result string to integers representing their "order level".
+        $map = self::RESULT_ORDER;
+        // Get the order value of each status.
+        $maxint = $map[$max];
+        $realint = $map[$status];
+        // Determine the lowest ordered status of the two.
+        $finalint = min($maxint, $realint);
+        // Flip the array to be integer => string constant and return the allowed
+        // final status.
+        $status = array_flip($map)[$finalint];
+        return new result($status, $result->get_summary(), $result->get_details());
+    }
+    /**
      * Gets a check result while applying specified overrides.
      * @param check $check
      * @return result with overrides
@@ -316,10 +378,22 @@ class checker {
         $ref = $check->get_ref();
         $result = $check->get_result();
 
+        // Apply any configured global configuration options to the result.
+        $result = self::apply_configuration_settings($ref, $result);
+
         $override = \tool_heartbeat\object\override::get_active_override($ref);
-        if (isset($override)) {
-            return new result($override->get('override'), $result->get_summary(), $result->get_details());
+        if (!isset($override)) {
+            return $result;
         }
-        return $result;
+
+        // Mutes should only be able to lower the level.
+        $map = self::RESULT_MAPPING;
+        $status = $override->get('override');
+        if ($map[$status] > $map[$result->get_status()]) {
+            // Don't automatically resolve the override as some checks may fail sporadically.
+            return $result;
+        }
+
+        return new result($status, $result->get_summary(), $result->get_details());
     }
 }

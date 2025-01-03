@@ -47,4 +47,69 @@ class lib_test extends \advanced_testcase {
         set_config('allowedips_forced', '', 'tool_heartbeat');
         $this->assertEquals('', lib::get_allowed_ips());
     }
+
+    /**
+     * Provides values to test error log ping.
+     * @return array
+     */
+    public function process_error_log_ping_provider(): array {
+        return [
+            'no period set - disabled' => [
+                'errorloglastpinged' => null,
+                'errorlog' => null,
+                'expectedtime' => null,
+                'testtime' => 1,
+            ],
+            'only period set' => [
+                'errorloglastpinged' => null,
+                'errorlog' => 1 * MINSECS,
+                // No last ping, so should update to the current time.
+                'expectedtime' => 1,
+                'testtime' => 1,
+            ],
+            'period has passed, time should change' => [
+                'errorloglastpinged' => 1,
+                'errorlog' => 1 * MINSECS,
+                // Test time is > last pinged + error log period,
+                // so should set to the current time.
+                'expectedtime' => 100,
+                // 100 seconds is > 1 min.
+                'testtime' => 100,
+            ],
+            'period not passed yet, time unchanged' => [
+                'errorloglastpinged' => 1,
+                'errorlog' => 1 * MINSECS,
+                // Test time is < last linged + error log period,
+                // so should leave it unchanged.
+                'expectedtime' => 1,
+                // 30 seconds is < 1 min.
+                'testtime' => 30,
+            ],
+        ];
+    }
+
+    /**
+     * Tests process_error_log_ping function
+     *
+     * @param int|null $errorloglastpinged next error value to set
+     * @param int|null $errorlog error log value to set
+     * @param int|null $expectedtime the time expected to be set
+     * @param int $testtime time to use for unit test (so it is deterministic)
+     * @dataProvider process_error_log_ping_provider
+     */
+    public function test_process_error_log_ping(?int $errorloglastpinged, ?int $errorlog, ?int $expectedtime, int $testtime) {
+        $this->resetAfterTest(true);
+        set_config('errorloglastpinged', $errorloglastpinged, 'tool_heartbeat');
+        set_config('errorlog', $errorlog, 'tool_heartbeat');
+        lib::process_error_log_ping($testtime);
+
+        $valueafter = get_config('tool_heartbeat', 'errorloglastpinged');
+
+        // Assert the time was not set at all.
+        if (is_null($expectedtime)) {
+            $this->assertFalse($valueafter);
+        } else {
+            $this->assertEquals($expectedtime, $valueafter);
+        }
+    }
 }
