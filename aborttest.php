@@ -26,14 +26,14 @@ define('NO_OUTPUT_BUFFERING', true);
 require(__DIR__ . '/../../../config.php');
 require_login();
 
-$stage       = optional_param('stage', 1,       PARAM_NUMBER);
+$stage       = optional_param('stage', 1, PARAM_NUMBER);
 $ignoreabort = optional_param('ignoreabort', 0, PARAM_NUMBER);
 
-$usleep      = optional_param('usleep', 100000,  PARAM_NUMBER);
-$abort       = optional_param('abort',    5,    PARAM_NUMBER);
-$redirect    = optional_param('redirect', 1,    PARAM_NUMBER);
-$reload      = optional_param('reload',   1,    PARAM_NUMBER);
-$updates     = optional_param('updates',  100,  PARAM_NUMBER);
+$usleep      = optional_param('usleep', 100000, PARAM_NUMBER);
+$abort       = optional_param('abort', 5, PARAM_NUMBER);
+$redirect    = optional_param('redirect', 1, PARAM_NUMBER);
+$reload      = optional_param('reload', 1, PARAM_NUMBER);
+$updates     = optional_param('updates', 100, PARAM_NUMBER);
 
 if ($ignoreabort) {
     ignore_user_abort(true);
@@ -64,9 +64,15 @@ if ($stage == 2) {
     $progress = $SESSION->abortprogress;
 
     if ($progress > 0 && $progress < 100) {
-        echo $OUTPUT->notification("Yay! the request was correctly aborted at {$progress}%", \core\output\notification::NOTIFY_SUCCESS);
+        echo $OUTPUT->notification(
+            "Yay! the request was correctly aborted at {$progress}%",
+            \core\output\notification::NOTIFY_SUCCESS
+        );
     } else {
-        echo $OUTPUT->notification("Doh! the request was not aborted: {$progress}%", \core\output\notification::NOTIFY_ERROR);
+        echo $OUTPUT->notification(
+            "Doh! the request was not aborted: {$progress}%",
+            \core\output\notification::NOTIFY_ERROR
+        );
     }
 
     echo "<p><a class='btn btn-primary' href='aborttest.php'>Start again</a></p>";
@@ -108,4 +114,3 @@ EOF;
     }
     $SESSION->abortprogress = 100;
 }
-

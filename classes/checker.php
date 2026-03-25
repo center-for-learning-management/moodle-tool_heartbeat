@@ -66,9 +66,11 @@ class checker {
      * If exceptions are thrown, they are caught and returned as result messages as well.
      * Note - OK results are not returned.
      *
+     * @param array $filters array of check ref strings to filter by
+     *
      * @return array array of resultmessage objects
      */
-    public static function get_check_messages(): array {
+    public static function get_check_messages(array $filters = []): array {
         // First try to get the checks, if this fails return a critical message (code is very broken).
         $checks = [];
 
@@ -86,17 +88,29 @@ class checker {
 
         foreach ($checks as $check) {
             try {
+                if (!empty($filters) && !isset($filters[$check->get_ref()])) {
+                    continue;
+                }
                 $messages[] = self::process_check_and_get_result($check);
             } catch (Throwable $e) {
                 $messages[] = self::exception_to_message("Error processing check " . $check->get_ref() . ": ", $e);
             }
         }
 
+        // Nothing executed, return a warning message.
+        if (empty($messages) && !empty($filters)) {
+            $res = new resultmessage();
+            $res->level = resultmessage::LEVEL_WARN;
+            $res->title = "Invalid filter";
+            $res->message = "No checks were executed. Check the filter names.";
+            $messages[] = $res;
+        }
+
         // Add any output buffer message.
         $messages[] = self::get_ob_message();
 
         // Filter out any OK messages, we don't care about these.
-        $messages = array_filter($messages, function($m) {
+        $messages = array_filter($messages, function ($m) {
             return $m->level != resultmessage::LEVEL_OK;
         });
 
@@ -123,7 +137,7 @@ class checker {
         }
 
         // Process these using the HTML cleaning function.
-        list($title, $message) = self::process_title_and_message($res->title, $res->message, "");
+        [$title, $message] = self::process_title_and_message($res->title, $res->message, "");
         $res->title = $title;
         $res->message = $message;
 
@@ -137,6 +151,11 @@ class checker {
      * @return resultmessage
      */
     private static function exception_to_message(string $prefix, Throwable $e): resultmessage {
+        // Errors can be swallowed, make sure phpunit can see them.
+        if (defined('PHPUNIT_TEST') && PHPUNIT_TEST) {
+            throw $e;
+        }
+
         $res = new resultmessage();
         $res->level = resultmessage::LEVEL_WARN;
         $res->title = $prefix . $e->getMessage();
@@ -161,8 +180,11 @@ class checker {
         $status = $checkresult->get_status();
         $res->level = isset($map[$status]) ? $map[$status] : resultmessage::LEVEL_UNKNOWN;
 
-        list($title, $message) = self::process_title_and_message($check->get_name(), $checkresult->get_summary(),
-            $checkresult->get_details());
+        [$title, $message] = self::process_title_and_message(
+            $check->get_name(),
+            $checkresult->get_summary(),
+            $checkresult->get_details()
+        );
         $res->title = $title;
         $res->message = $message;
 
@@ -176,7 +198,13 @@ class checker {
      * @param string $details
      * @return array array of [$title, $message]
      */
-    private static function process_title_and_message(string $title, string $summary, string $details): array {
+    public static function process_title_and_message(string $title, string $summary, string $details): array {
+
+        // Convert rich html to text first.
+        $details = html_to_text($details);
+        // Condense repeated new lines.
+        $details = preg_replace("/\\n+/", "\n", $details);
+
         // Strip tags from summary and details.
         $summary = self::clean_text($summary);
         $details = self::clean_text($details);
@@ -186,7 +214,7 @@ class checker {
         $messagelines = array_merge($messagelines, explode("\n", $details));
 
         // Clean each one.
-        $messagelines = array_map(function($line) {
+        $messagelines = array_map(function ($line) {
             return self::clean_text($line);
         }, $messagelines);
 
@@ -244,7 +272,7 @@ class checker {
         $hasunknown = in_array(resultmessage::LEVEL_UNKNOWN, $levels);
 
         // Remove unknowns.
-        $levels = array_filter($levels, function($l) {
+        $levels = array_filter($levels, function ($l) {
             return $l != resultmessage::LEVEL_UNKNOWN;
         });
 
@@ -272,7 +300,7 @@ class checker {
     public static function create_summary(array $messages): string {
         // Filter out any OK messages.
         // Usually they are filtered out already, but in case they aren't.
-        $messages = array_filter($messages, function($m) {
+        $messages = array_filter($messages, function ($m) {
             return $m->level != resultmessage::LEVEL_OK;
         });
 
@@ -317,7 +345,7 @@ class checker {
      */
     public static function remove_supressed_checks(array $checks): array {
         // Remove any supressed checks from the list.
-        return array_filter($checks, function($check) {
+        return array_filter($checks, function ($check) {
             return !in_array(get_class($check), self::supressed_checks());
         });
     }
@@ -333,7 +361,8 @@ class checker {
     public static function apply_configuration_settings($ref, result $result): result {
         global $CFG, $OUTPUT;
         // No configuration exists, short circuit.
-        if (!isset($CFG->tool_heartbeat_check_defaults)
+        if (
+            !isset($CFG->tool_heartbeat_check_defaults)
             || !is_array($CFG->tool_heartbeat_check_defaults)
         ) {
             return $result;
@@ -347,7 +376,7 @@ class checker {
         // always applies.
         $tests = array_keys($CFG->tool_heartbeat_check_defaults);
         foreach ($tests as $test) {
-            $regex = '/'.$test.'/';
+            $regex = '/' . $test . '/';
             if (preg_match($regex, $ref)) {
                 // This key matched, get the maximum fail delay.
                 $max = $CFG->tool_heartbeat_check_defaults[$test]['maxwarninglevel'];

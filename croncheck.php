@@ -43,10 +43,21 @@ if ($iscli) {
 $dirroot = __DIR__ . '/../../../';
 require_once($dirroot . 'config.php');
 
+$filterids = [];
 if ($isweb) {
     // If run from the web.
     // Add requirement for IP validation.
     tool_heartbeat\lib::validate_ip_against_config();
+
+    $filterraw = optional_param('filter', '', PARAM_RAW_TRIMMED);
+    if (!empty($filterraw)) {
+        foreach (explode(',', $filterraw) as $id) {
+            $id = trim($id);
+            if ($id !== '') {
+                $filterids[$id] = true;
+            }
+        }
+    }
 
     header("Content-Type: text/plain");
 
@@ -72,7 +83,7 @@ ob_start();
 
 lib::process_error_log_ping();
 
-$messages = checker::get_check_messages();
+$messages = checker::get_check_messages($filterids);
 
 // Construct the output message.
 $PAGE->set_context(\context_system::instance());
@@ -80,15 +91,15 @@ $PAGE->set_context(\context_system::instance());
 // Indent the messages.
 $msg = array_map(function($message) {
     global $OUTPUT;
-    
-    $spacer = " ";
+
+    $spacer = '    ';
 
     // Add the spacer to the start of each message line.
     $indentedlines = explode("\n", $message->message);
     $indentedlines = array_map(function($line) use ($spacer) {
         return $spacer . $line;
     }, $indentedlines);
-    
+
     $indentedmessage = implode("\n", $indentedlines);
 
     return $OUTPUT->render_from_template('tool_heartbeat/resultmessage', [
@@ -105,5 +116,9 @@ $level = checker::determine_nagios_level($messages);
 $prefix = checker::NAGIOS_PREFIXES[$level];
 $now = userdate(time());
 
-printf("{$prefix}: $msg\n\n(Checked {$now})\n");
+echo "{$prefix}: $msg\n\n";
+if ($filterids) {
+    echo "Filtered to subset of checks: " . join(', ', array_keys($filterids)) . " \n";
+}
+echo "(Checked {$now})\n";
 exit($level);

@@ -23,12 +23,13 @@ namespace tool_heartbeat;
  * @author    Matthew Hilton <matthewhilton@catalyst-au.net>
  * @copyright 2023, Catalyst IT
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers    \tool_heartbeat\checker
  */
-class checker_test extends \advanced_testcase {
+final class checker_test extends \advanced_testcase {
     /**
      * Tests get_check_messages function
      */
-    public function test_get_check_messages() {
+    public function test_get_check_messages(): void {
         // Need to start output buffering, since get_check_messages closes it.
         ob_start();
 
@@ -38,6 +39,32 @@ class checker_test extends \advanced_testcase {
         // Just test that the check API is working, and this returns some checks (for example the ones included with this plugin).
         $checks = checker::get_check_messages();
         $this->assertNotEmpty($checks);
+    }
+
+    /**
+     * Tests get_check_messages function with filter
+     * @return void
+     */
+    public function test_get_check_messages_with_filter(): void {
+        // Check API modifies DB state.
+        $this->resetAfterTest(true);
+
+        // Filter which has a result.
+        ob_start();
+        $checks = checker::get_check_messages(['tool_task_cronrunning' => true]);
+        $this->assertNotEmpty($checks);
+
+        // Filter which doesn't have result.
+        ob_start();
+        $checks = checker::get_check_messages(['tool_task_adhocqueue' => true]);
+        $this->assertEmpty($checks);
+
+        // Filter by invalid value.
+        ob_start();
+        $checks = checker::get_check_messages(['tool_invalid_name' => true]);
+        $this->assertCount(1, $checks);
+        $check = reset($checks);
+        $this->assertEquals('Invalid filter', $check->title);
     }
 
     /**
@@ -79,9 +106,9 @@ class checker_test extends \advanced_testcase {
      * @param int $expectedlevel
      * @dataProvider determine_nagios_level_provider
      */
-    public function test_determine_nagios_level(array $levels, int $expectedlevel) {
+    public function test_determine_nagios_level(array $levels, int $expectedlevel): void {
         // Generate a series of dummy messages with the given levels.
-        $messages = array_map(function($level) {
+        $messages = array_map(function ($level) {
             $msg = new resultmessage();
             $msg->level = $level;
             return $msg;
@@ -110,7 +137,7 @@ class checker_test extends \advanced_testcase {
         $criticalmsg->level = resultmessage::LEVEL_CRITICAL;
         $criticalmsg->title = "test CRITICAL title";
 
-        // Pipes should be cleaned from output and replaced with [pipe]
+        // Pipes should be cleaned from output and replaced with [pipe].
         $criticalwithpipemsg = new resultmessage();
         $criticalwithpipemsg->level = resultmessage::LEVEL_CRITICAL;
         $criticalwithpipemsg->title = "test CRITICAL title |";
@@ -145,8 +172,50 @@ class checker_test extends \advanced_testcase {
      * @param string $expectedsummary
      * @dataProvider create_summary_provider
      */
-    public function test_create_summary(array $messages, string $expectedsummary) {
+    public function test_create_summary(array $messages, string $expectedsummary): void {
         $summary = checker::create_summary($messages);
         $this->assertEquals($expectedsummary, $summary);
+    }
+
+
+    /**
+     * Provides values to test_create_summary test
+     * @return array
+     */
+    public static function process_title_and_message_provider(): array {
+        return [
+            'no html just \ n' => [
+                'html' => "hello\nworld\n",
+                'text' => "hello world",
+            ],
+            'paragraphs' => [
+                'html' => "<p>hello</p><p>world</p>",
+                'text' => "hello\nworld",
+            ],
+            'sinple br' => [
+                'html' => "hello<br>world<br>",
+                'text' => "hello\nworld",
+            ],
+            'sinple br /' => [
+                'html' => "hello<br />world<br />",
+                'text' => "hello\nworld",
+            ],
+            'sinple br/' => [
+                'html' => "hello<br/>world<br/>",
+                'text' => "hello\nworld",
+            ],
+        ];
+    }
+
+    /**
+     * Tests the html to text
+     *
+     * @param array $detailshtml
+     * @param string $expecteddetailstext
+     * @dataProvider process_title_and_message_provider
+     */
+    public function test_process_title_and_message(string $html, string $text): void {
+        [$title, $actual] = checker::process_title_and_message('title', 'message', $html);
+        $this->assertEquals($text, $actual);
     }
 }

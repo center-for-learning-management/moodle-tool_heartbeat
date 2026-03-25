@@ -24,11 +24,12 @@ namespace tool_heartbeat;
  * @copyright 2022, Catalyst IT
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class lib_test extends \advanced_testcase {
+final class lib_test extends \advanced_testcase {
     /**
      * Test lib::test_get_allowed_ips()
+     * @covers \tool_heartbeat\lib::test_get_allowed_ips
      */
-    public function test_get_allowed_ips() {
+    public function test_get_allowed_ips(): void {
         $this->resetAfterTest();
 
         set_config('allowedips', '127.0.0.1', 'tool_heartbeat');
@@ -96,8 +97,9 @@ class lib_test extends \advanced_testcase {
      * @param int|null $expectedtime the time expected to be set
      * @param int $testtime time to use for unit test (so it is deterministic)
      * @dataProvider process_error_log_ping_provider
+     * @covers \tool_heartbeat\lib::process_error_log_ping
      */
-    public function test_process_error_log_ping(?int $errorloglastpinged, ?int $errorlog, ?int $expectedtime, int $testtime) {
+    public function test_process_error_log_ping(?int $errorloglastpinged, ?int $errorlog, ?int $expectedtime, int $testtime): void {
         $this->resetAfterTest(true);
         set_config('errorloglastpinged', $errorloglastpinged, 'tool_heartbeat');
         set_config('errorlog', $errorlog, 'tool_heartbeat');
