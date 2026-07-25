@@ -123,7 +123,7 @@ if ($hassiteconfig) {
             WEEKSECS
         ));
 
-        $statuslist = tool_heartbeat\object\override::get_status_list();
+        $statuslist = tool_heartbeat\local\override::get_status_list();
         reset($statuslist);
         $settings->add(new admin_setting_configselect(
             'tool_heartbeat/mutedefaultstatus',
@@ -148,6 +148,28 @@ if ($hassiteconfig) {
             get_string('tasklatencymonitoring_desc', 'tool_heartbeat', $example),
             '',
             PARAM_TEXT
+        ));
+
+        $settings->add(new admin_setting_heading(
+            'tool_heartbeat/scheduledqueuesettings',
+            get_string('settings:scheduledqueueheading', 'tool_heartbeat'),
+            get_string('settings:scheduledqueueheading_desc', 'tool_heartbeat')
+        ));
+
+        $settings->add(new admin_setting_configduration(
+            'tool_heartbeat/scheduledqueuewarn',
+            get_string('settings:scheduledqueuewarn', 'tool_heartbeat'),
+            get_string('settings:scheduledqueuewarn_desc', 'tool_heartbeat'),
+            HOURSECS,
+            MINSECS
+        ));
+
+        $settings->add(new admin_setting_configduration(
+            'tool_heartbeat/scheduledqueueerror',
+            get_string('settings:scheduledqueueerror', 'tool_heartbeat'),
+            get_string('settings:scheduledqueueerror_desc', 'tool_heartbeat'),
+            HOURSECS * 4,
+            MINSECS
         ));
 
         // Cache consistency check settings.

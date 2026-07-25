@@ -28,10 +28,14 @@ define('NO_OUTPUT_BUFFERING', true);
 require(__DIR__ . '/../../../../config.php');
 // @codingStandardsIgnoreEnd
 
+require_login();
+require_capability('moodle/site:config', context_system::instance());
+
 // So we don't  brick our session.
 \core\session\manager::write_close();
 
 $sleep = required_param('time', PARAM_INT);
+$sleep = min($sleep, 3600); // Cap at 1 hour to prevent DoS via unbounded sleep.
 
 for ($c = 0; $c < $sleep; $c++) {
     sleep(1);
